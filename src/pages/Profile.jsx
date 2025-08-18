@@ -46,6 +46,7 @@ const Profile = () => {
         email: user.email || '',
         age: user.age || '',
         height: user.height || '',
+        weight: user.weight || '',
         foodStyle: user.foodStyle || 'veg',
         country: user.country || '',
         region: user.region || '',
@@ -92,6 +93,7 @@ const Profile = () => {
       email: user.email || '',
       age: user.age || '',
       height: user.height || '',
+      weight: user.weight || '',
       foodStyle: user.foodStyle || 'veg',
       country: user.country || '',
       region: user.region || '',
@@ -132,7 +134,7 @@ const Profile = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   // Get user initials for avatar
@@ -439,6 +441,28 @@ const Profile = () => {
                     />
                   ) : (
                     <p className="text-gray-900">{user?.height ? `${user.height} cm` : 'Not specified'}</p>
+                  )}
+                </div>
+
+                {/* Weight */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Ruler className="inline w-4 h-4 mr-1" />
+                    Weight
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      name="weight"
+                      value={editData.weight}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      min="20"
+                      max="300"
+                      disabled={loading}
+                    />
+                  ) : (
+                    <p className="text-gray-900">{user?.weight ? `${user.weight} kg` : 'Not specified'}</p>
                   )}
                 </div>
 

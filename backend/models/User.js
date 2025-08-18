@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema({
     min: 100,
     max: 250
   },
+  weight: {
+    type: Number,
+    min: 20,
+    max: 300
+  },
   foodStyle: {
     type: String,
     enum: ['veg', 'nonveg'],

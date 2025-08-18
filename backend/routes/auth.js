@@ -12,7 +12,7 @@ const resetTokens = new Map();
 // Register new user
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, age, height, foodStyle, country, region } = req.body;
+    const { name, email, password, age, height, weight, foodStyle, country, region } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -27,6 +27,7 @@ router.post('/register', async (req, res) => {
       password,
       age: age || undefined,
       height: height || undefined,
+      weight: weight || undefined,
       foodStyle: foodStyle || 'veg',
       country: country || undefined,
       region: region || undefined
@@ -194,7 +195,7 @@ router.get('/profile', auth, async (req, res) => {
 // Update user profile (protected route)
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { name, email, age, height, foodStyle, country, region, notifications, privacy, healthGoals } = req.body;
+    const { name, email, age, height, weight, foodStyle, country, region, notifications, privacy, healthGoals } = req.body;
 
     // Update user fields
     const updateData = {};
@@ -202,6 +203,7 @@ router.put('/profile', auth, async (req, res) => {
     if (email) updateData.email = email;
     if (age !== undefined) updateData.age = age;
     if (height !== undefined) updateData.height = height;
+    if (req.body.weight !== undefined) updateData.weight = req.body.weight;
     if (foodStyle) updateData.foodStyle = foodStyle;
     if (country) updateData.country = country;
     if (region) updateData.region = region;

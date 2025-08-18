@@ -88,7 +88,7 @@ const NutriFlowDashboard = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/landingpage');
+    navigate('/');
   };
 
   const caloriePercentage = (caloriesConsumed / 2000) * 100;
