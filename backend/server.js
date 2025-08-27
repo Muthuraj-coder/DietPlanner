@@ -4,6 +4,7 @@ const cors = require('cors');
 require('dotenv').config({ path: './config.env' });
 
 const authRoutes = require('./routes/auth');
+const mealplanRoutes = require('./routes/mealplan');
 
 const app = express();
 
@@ -23,6 +24,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/mealplan', mealplanRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

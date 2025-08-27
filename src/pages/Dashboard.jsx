@@ -2,18 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Home, Calendar, CheckSquare, Newspaper, User, Scale, Target, Droplet, Zap, Clock, MapPin, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 const NutriFlowDashboard = () => {
   const [currentWeight, setCurrentWeight] = useState(65);
-  const [caloriesConsumed, setCaloriesConsumed] = useState(1847);
-  const [waterIntake, setWaterIntake] = useState(6);
+  const [caloriesConsumed, setCaloriesConsumed] = useState(0);
+  const [waterIntake, setWaterIntake] = useState(0);
   const [streakDays, setStreakDays] = useState(12);
   const [activeTab, setActiveTab] = useState('Dashboard');
-  const [mealCompletions, setMealCompletions] = useState({
-    breakfast: true,
-    lunch: false,
-    dinner: false
-  });
+  const [todayMealPlan, setTodayMealPlan] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [targetCalories, setTargetCalories] = useState(2000);
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const { user, logout } = useAuth();
@@ -26,6 +25,25 @@ const NutriFlowDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Fetch today's meal plan on component mount
+  useEffect(() => {
+    fetchTodayMealPlan();
+  }, []);
+
+  const fetchTodayMealPlan = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getTodayMealPlan();
+      setTodayMealPlan(response.mealPlan);
+      setCaloriesConsumed(response.consumedCalories || 0);
+      setTargetCalories(response.mealPlan.targetDailyCalories || 2000);
+    } catch (error) {
+      console.error('Error fetching today\'s meal plan:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const navItems = [
     { name: 'Dashboard', icon: Home, active: true, path: '/dashboard' },
     { name: 'Meal Plans', icon: Calendar, path: '/meal-plans' },
@@ -36,41 +54,57 @@ const NutriFlowDashboard = () => {
 
   const topNavItems = ['Dashboard', 'Meal Plans', 'Tasks', 'Health News'];
 
-  const meals = [
-    {
-      type: 'Breakfast',
-      name: 'Oatmeal Bowl',
-      description: 'Steel-cut oats with berries and nuts',
-      time: '8:00 AM',
-      calories: 320,
-      image: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?w=300&h=200&fit=crop',
-      completed: mealCompletions.breakfast
-    },
-    {
-      type: 'Lunch',
-      name: 'Quinoa Power Bowl',
-      description: 'Protein-rich quinoa with vegetables',
-      time: '1:00 PM',
-      calories: 450,
-      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop',
-      completed: mealCompletions.lunch
-    },
-    {
-      type: 'Dinner',
-      name: 'Grilled Salmon',
-      description: 'Omega-3 rich salmon with vegetables',
-      time: '7:00 PM',
-      calories: 520,
-      image: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=300&h=200&fit=crop',
-      completed: mealCompletions.dinner
-    }
-  ];
+  // Get meals from today's meal plan or use default
+  const meals = todayMealPlan ? todayMealPlan.meals.map(meal => ({
+    type: meal.mealType.charAt(0).toUpperCase() + meal.mealType.slice(1),
+    name: meal.name,
+    description: meal.ingredients.slice(0, 3).join(', '),
+    time: getMealTime(meal.mealType),
+    calories: meal.calories,
+    image: meal.image || getDefaultMealImage(meal.mealType),
+    completed: meal.completed || false,
+    mealType: meal.mealType
+  })) : [];
 
-  const handleMealComplete = (mealType) => {
-    setMealCompletions(prev => ({
-      ...prev,
-      [mealType.toLowerCase()]: !prev[mealType.toLowerCase()]
-    }));
+  function getMealTime(mealType) {
+    const times = {
+      breakfast: '8:00 AM',
+      lunch: '1:00 PM',
+      snack: '4:00 PM',
+      dinner: '7:00 PM'
+    };
+    return times[mealType] || '12:00 PM';
+  }
+
+  function getDefaultMealImage(mealType) {
+    const images = {
+      breakfast: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?w=300&h=200&fit=crop',
+      lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop',
+      snack: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=300&h=200&fit=crop',
+      dinner: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=300&h=200&fit=crop'
+    };
+    return images[mealType] || images.lunch;
+  }
+
+  const handleMealComplete = async (meal) => {
+    try {
+      if (meal.completed) return; // Already completed
+      
+      const response = await api.completeMeal(meal.mealType);
+      setCaloriesConsumed(response.consumedCalories);
+      
+      // Update the meal plan state
+      setTodayMealPlan(prev => ({
+        ...prev,
+        meals: prev.meals.map(m => 
+          m.mealType === meal.mealType 
+            ? { ...m, completed: true, completedAt: new Date() }
+            : m
+        )
+      }));
+    } catch (error) {
+      console.error('Error completing meal:', error);
+    }
   };
 
   const handleWaterIntake = () => {
@@ -91,7 +125,7 @@ const NutriFlowDashboard = () => {
     navigate('/');
   };
 
-  const caloriePercentage = (caloriesConsumed / 2000) * 100;
+  const caloriePercentage = (caloriesConsumed / targetCalories) * 100;
   const waterPercentage = (waterIntake / 8) * 100;
 
   // Get user initials for avatar
@@ -201,7 +235,7 @@ const NutriFlowDashboard = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Calories</span>
-                  <span className="text-sm font-semibold text-gray-900">{caloriesConsumed.toLocaleString()}/2,000</span>
+                  <span className="text-sm font-semibold text-gray-900">{caloriesConsumed.toLocaleString()}/{targetCalories.toLocaleString()}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
@@ -265,7 +299,7 @@ const NutriFlowDashboard = () => {
                 </div>
                 <div className="mb-2">
                   <div className="flex justify-between text-sm text-gray-600 mb-2">
-                    <span>Goal: 2,000 cal</span>
+                    <span>Goal: {targetCalories.toLocaleString()} cal</span>
                     <span className="font-semibold">{Math.round(caloriePercentage)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
@@ -326,51 +360,74 @@ const NutriFlowDashboard = () => {
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Today's Meal Plan</h3>
                   <p className="text-gray-600">Track your daily nutrition and stay on target</p>
                 </div>
-                <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md">
+                <button 
+                  onClick={() => navigate('/meal-plans')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md"
+                >
                   View Full Plan
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {meals.map((meal, index) => (
-                  <div key={index} className="bg-gray-50 rounded-2xl p-6 hover:shadow-lg transition-shadow border border-gray-100">
-                    <div className="relative mb-4">
-                      <img
-                        src={meal.image}
-                        alt={meal.name}
-                        className="w-full h-40 object-cover rounded-xl"
-                      />
-                      <div className="absolute top-3 left-3 bg-white px-3 py-1 rounded-full text-xs font-semibold text-gray-700 shadow-sm">
-                        {meal.type}
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                </div>
+              ) : meals.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {meals.map((meal, index) => (
+                    <div key={index} className="bg-gray-50 rounded-2xl p-6 hover:shadow-lg transition-shadow border border-gray-100">
+                      <div className="relative mb-4">
+                        <img
+                          src={meal.image}
+                          alt={meal.name}
+                          className="w-full h-32 object-cover rounded-xl"
+                          onError={(e) => {
+                            e.target.src = getDefaultMealImage(meal.mealType);
+                          }}
+                        />
+                        <div className="absolute top-2 left-2 bg-white px-2 py-1 rounded-full text-xs font-semibold text-gray-700 shadow-sm">
+                          {meal.type}
+                        </div>
+                        <div className="absolute top-2 right-2 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                          {meal.calories} cal
+                        </div>
                       </div>
-                      <div className="absolute top-3 right-3 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                        {meal.calories} cal
+                      
+                      <h4 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{meal.name}</h4>
+                      <p className="text-sm text-gray-600 mb-4 leading-relaxed line-clamp-2">{meal.description}</p>
+                      
+                      <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                        <div className="flex items-center bg-white px-2 py-1 rounded-lg">
+                          <Clock className="w-3 h-3 mr-1 text-emerald-500" />
+                          <span className="font-medium text-xs">{meal.time}</span>
+                        </div>
                       </div>
+                      
+                      <button
+                        onClick={() => handleMealComplete(meal)}
+                        disabled={meal.completed}
+                        className={`w-full py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                          meal.completed
+                            ? 'bg-emerald-500 text-white shadow-lg cursor-default'
+                            : 'bg-gray-200 text-gray-700 hover:bg-emerald-100 hover:text-emerald-700 hover:shadow-md'
+                        }`}
+                      >
+                        {meal.completed ? '✓ Completed' : 'Mark Complete'}
+                      </button>
                     </div>
-                    
-                    <h4 className="text-lg font-bold text-gray-900 mb-2">{meal.name}</h4>
-                    <p className="text-sm text-gray-600 mb-4 leading-relaxed">{meal.description}</p>
-                    
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                      <div className="flex items-center bg-white px-3 py-2 rounded-lg">
-                        <Clock className="w-4 h-4 mr-2 text-emerald-500" />
-                        <span className="font-medium">{meal.time}</span>
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => handleMealComplete(meal.type)}
-                      className={`w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                        meal.completed
-                          ? 'bg-emerald-500 text-white shadow-lg transform scale-105'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md'
-                      }`}
-                    >
-                      {meal.completed ? '✓ Completed' : 'Mark Complete'}
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-600 mb-4">No meal plan available for today</p>
+                  <button 
+                    onClick={() => navigate('/meal-plans')}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors"
+                  >
+                    Generate Meal Plan
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -109,6 +109,29 @@ class ApiService {
     });
   }
 
+  // Meal plan generation
+  async generateMealPlan(profile, edamam) {
+    return await this.makeRequest('/mealplan/generate', {
+      method: 'POST',
+      body: JSON.stringify({ ...profile, ...edamam }),
+    });
+  }
+
+  // Get today's meal plan
+  async getTodayMealPlan() {
+    return await this.makeRequest('/mealplan/today', {
+      method: 'GET',
+    });
+  }
+
+  // Complete a meal
+  async completeMeal(mealType) {
+    return await this.makeRequest('/mealplan/complete-meal', {
+      method: 'POST',
+      body: JSON.stringify({ mealType }),
+    });
+  }
+
   // Health check
   async healthCheck() {
     return await this.makeRequest('/health', {
