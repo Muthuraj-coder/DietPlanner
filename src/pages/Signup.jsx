@@ -16,7 +16,6 @@ import {
   CheckCircle
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-
 const Signup = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,6 +28,7 @@ const Signup = () => {
     age: "",
     height: "",
     weight: "",
+    gender: "",
     foodStyle: "veg",
     country: "",
     region: ""
@@ -36,7 +36,6 @@ const Signup = () => {
   
   const { register } = useAuth();
   const navigate = useNavigate();
-
   const steps = [
     { id: 0, title: "Account Info", icon: User },
     { id: 1, title: "Personal Info", icon: User }
@@ -73,6 +72,7 @@ const Signup = () => {
         age: form.age ? parseInt(form.age) : undefined,
         height: form.height ? parseInt(form.height) : undefined,
         weight: form.weight ? parseInt(form.weight) : undefined,
+        gender: form.gender || undefined,
         foodStyle: form.foodStyle,
         country: form.country || undefined,
         region: form.region || undefined
@@ -320,6 +320,30 @@ const Signup = () => {
                       max="300"
                       disabled={loading}
                     />
+                  </div>
+                </div>
+
+                {/* Gender Field */}
+                <div>
+                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-2">
+                    Gender
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      id="gender"
+                      name="gender"
+                      value={form.gender}
+                      onChange={handleChange}
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                      disabled={loading}
+                    >
+                      <option value="">Select your gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
                   </div>
                 </div>
 

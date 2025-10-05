@@ -34,6 +34,11 @@ const userSchema = new mongoose.Schema({
     min: 20,
     max: 300
   },
+  gender: {
+    type: String,
+    enum: ['male', 'female'],
+    required: false
+  },
   foodStyle: {
     type: String,
     enum: ['veg', 'nonveg'],
@@ -84,6 +89,22 @@ const userSchema = new mongoose.Schema({
     goalProgress: {
       type: Number,
       default: 0
+    }
+  },
+  dailyTracking: {
+    waterIntake: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 20
+    },
+    lastWaterReset: {
+      type: Date,
+      default: Date.now
+    },
+    lastStreakUpdate: {
+      type: Date,
+      default: Date.now
     }
   }
 }, {

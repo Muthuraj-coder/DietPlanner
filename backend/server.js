@@ -5,11 +5,38 @@ require('dotenv').config({ path: './config.env' });
 
 const authRoutes = require('./routes/auth');
 const mealplanRoutes = require('./routes/mealplan');
+const schedulerRoutes = require('./scheduler');
 
 const app = express();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+      ? [
+          process.env.FRONTEND_URL || 'https://nutriflow-app.netlify.app',
+          'https://nutriflow-app.netlify.app',
+          'https://main--nutriflow-app.netlify.app' // Netlify deploy previews
+        ]
+      : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174'];
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200 // For legacy browser support
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -25,6 +52,7 @@ mongoose.connect(process.env.MONGODB_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/mealplan', mealplanRoutes);
+app.use('/api/scheduler', schedulerRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

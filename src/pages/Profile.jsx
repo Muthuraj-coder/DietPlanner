@@ -47,6 +47,7 @@ const Profile = () => {
         age: user.age || '',
         height: user.height || '',
         weight: user.weight || '',
+        gender: user.gender || '',
         foodStyle: user.foodStyle || 'veg',
         country: user.country || '',
         region: user.region || '',
@@ -94,6 +95,7 @@ const Profile = () => {
       age: user.age || '',
       height: user.height || '',
       weight: user.weight || '',
+      gender: user.gender || '',
       foodStyle: user.foodStyle || 'veg',
       country: user.country || '',
       region: user.region || '',
@@ -466,25 +468,26 @@ const Profile = () => {
                   )}
                 </div>
 
-                {/* Food Style */}
+                {/* Gender */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Utensils className="inline w-4 h-4 mr-1" />
-                    Dietary Preference
+                    <User className="inline w-4 h-4 mr-1" />
+                    Gender
                   </label>
                   {isEditing ? (
                     <select
-                      name="foodStyle"
-                      value={editData.foodStyle}
+                      name="gender"
+                      value={editData.gender}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       disabled={loading}
                     >
-                      <option value="veg">Vegetarian</option>
-                      <option value="nonveg">Non-Vegetarian</option>
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
                     </select>
                   ) : (
-                    <p className="text-gray-900">{user?.foodStyle === 'veg' ? 'Vegetarian' : user?.foodStyle === 'nonveg' ? 'Non-Vegetarian' : 'Not specified'}</p>
+                    <p className="text-gray-900">{user?.gender ? (user.gender === 'male' ? 'Male' : 'Female') : 'Not specified'}</p>
                   )}
                 </div>
 

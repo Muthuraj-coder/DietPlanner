@@ -5,18 +5,26 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const NutriFlowDashboard = () => {
-  const [currentWeight, setCurrentWeight] = useState(65);
+  const [currentWeight, setCurrentWeight] = useState(0);
   const [caloriesConsumed, setCaloriesConsumed] = useState(0);
   const [waterIntake, setWaterIntake] = useState(0);
-  const [streakDays, setStreakDays] = useState(12);
+  const [streakDays, setStreakDays] = useState(0);
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [todayMealPlan, setTodayMealPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [targetCalories, setTargetCalories] = useState(2000);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Define navigation items
+  const topNavItems = [
+    { name: 'Dashboard', path: '/dashboard', icon: Home },
+    { name: 'Meal Plans', path: '/meal-plans', icon: Calendar },
+    { name: 'Profile', path: '/profile', icon: User }
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -25,9 +33,10 @@ const NutriFlowDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch today's meal plan on component mount
+  // Fetch today's meal plan and dashboard stats on component mount
   useEffect(() => {
     fetchTodayMealPlan();
+    fetchDashboardStats();
   }, []);
 
   const fetchTodayMealPlan = async () => {
@@ -44,6 +53,20 @@ const NutriFlowDashboard = () => {
     }
   };
 
+  const fetchDashboardStats = async () => {
+    try {
+      setDashboardLoading(true);
+      const response = await api.getDashboardStats();
+      setCurrentWeight(response.currentWeight);
+      setWaterIntake(response.waterIntake);
+      setStreakDays(response.streakDays);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
   const navItems = [
     { name: 'Dashboard', icon: Home, active: true, path: '/dashboard' },
     { name: 'Meal Plans', icon: Calendar, path: '/meal-plans' },
@@ -52,7 +75,6 @@ const NutriFlowDashboard = () => {
     { name: 'Profile', icon: User, path: '/profile' }
   ];
 
-  const topNavItems = ['Dashboard', 'Meal Plans', 'Tasks', 'Health News'];
 
   // Get meals from today's meal plan or use default
   const meals = todayMealPlan ? todayMealPlan.meals.map(meal => ({
@@ -107,13 +129,19 @@ const NutriFlowDashboard = () => {
     }
   };
 
-  const handleWaterIntake = () => {
+  const handleWaterIntake = async () => {
     if (waterIntake < 8) {
-      setWaterIntake(prev => prev + 1);
+      try {
+        const response = await api.updateWaterIntake();
+        setWaterIntake(response.waterIntake);
+      } catch (error) {
+        console.error('Error updating water intake:', error);
+      }
     }
   };
 
   const handleNavClick = (item) => {
+    console.log('Navigating to:', item);
     if (item.path) {
       navigate(item.path);
     }
@@ -149,22 +177,23 @@ const NutriFlowDashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">NutriFlow</h1>
             </div>
             
-                         {/* Top Navigation - Improved styling */}
-             <nav className="hidden md:flex space-x-1">
-               {topNavItems.map((item) => (
-                 <button
-                   key={item}
-                   onClick={() => setActiveTab(item)}
-                   className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                     activeTab === item 
-                       ? 'bg-emerald-600 text-white shadow-md' 
-                       : 'bg-gray-100 text-gray-700 hover:bg-emerald-100 hover:text-emerald-700'
-                   }`}
-                 >
-                   {item}
-                 </button>
-               ))}
-             </nav>
+            {/* Top Navigation - Fixed */}
+            <nav className="hidden md:flex space-x-1">
+              {topNavItems.map((item) => (
+                <button
+                  key={item.name}
+                  onClick={() => handleNavClick(item)}
+                  className={`flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
+                    activeTab === item.name 
+                      ? 'bg-emerald-600 text-white shadow-md' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-emerald-100 hover:text-emerald-700'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.name}</span>
+                </button>
+              ))}
+            </nav>
             
             <div className="flex items-center space-x-4">
               <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
@@ -275,14 +304,29 @@ const NutriFlowDashboard = () => {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500 mb-1">Current Weight</p>
-                    <p className="text-3xl font-bold text-gray-900">{currentWeight} kg</p>
+                    {dashboardLoading ? (
+                      <div className="animate-pulse bg-gray-200 h-8 w-20 rounded"></div>
+                    ) : (
+                      <p className="text-3xl font-bold text-gray-900">
+                        {currentWeight ? `${currentWeight} kg` : 'Not set'}
+                      </p>
+                    )}
                   </div>
                   <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
                     <Scale className="w-6 h-6 text-emerald-600" />
                   </div>
                 </div>
                 <div className="flex items-center text-sm">
-                  <span className="text-emerald-600 font-semibold">↓ -0.5 kg this week</span>
+                  {currentWeight ? (
+                    <span className="text-gray-500 font-medium">Update in profile</span>
+                  ) : (
+                    <button 
+                      onClick={() => navigate('/profile')}
+                      className="text-emerald-600 font-semibold hover:text-emerald-700"
+                    >
+                      Set your weight →
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -341,14 +385,18 @@ const NutriFlowDashboard = () => {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500 mb-1">Streak</p>
-                    <p className="text-3xl font-bold text-gray-900">{streakDays} days</p>
+                    {dashboardLoading ? (
+                      <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
+                    ) : (
+                      <p className="text-3xl font-bold text-gray-900">{streakDays} days</p>
+                    )}
                   </div>
                   <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
                     <Zap className="w-6 h-6 text-yellow-600" />
                   </div>
                 </div>
                 <div className="text-sm text-emerald-600 font-semibold">
-                  🔥 Keep it up!
+                  {streakDays > 0 ? '🔥 Keep it up!' : '🎯 Start your journey!'}
                 </div>
               </div>
             </div>

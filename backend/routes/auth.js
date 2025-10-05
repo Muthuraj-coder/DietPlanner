@@ -12,7 +12,7 @@ const resetTokens = new Map();
 // Register new user
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, age, height, weight, foodStyle, country, region } = req.body;
+    const { name, email, password, age, height, weight, gender, foodStyle, country, region } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -28,6 +28,7 @@ router.post('/register', async (req, res) => {
       age: age || undefined,
       height: height || undefined,
       weight: weight || undefined,
+      gender: gender || undefined,
       foodStyle: foodStyle || 'veg',
       country: country || undefined,
       region: region || undefined
@@ -195,7 +196,7 @@ router.get('/profile', auth, async (req, res) => {
 // Update user profile (protected route)
 router.put('/profile', auth, async (req, res) => {
   try {
-    const { name, email, age, height, weight, foodStyle, country, region, notifications, privacy, healthGoals } = req.body;
+    const { name, email, age, height, weight, gender, foodStyle, country, region, notifications, privacy, healthGoals } = req.body;
 
     // Update user fields
     const updateData = {};
@@ -204,6 +205,7 @@ router.put('/profile', auth, async (req, res) => {
     if (age !== undefined) updateData.age = age;
     if (height !== undefined) updateData.height = height;
     if (req.body.weight !== undefined) updateData.weight = req.body.weight;
+    if (req.body.gender !== undefined) updateData.gender = req.body.gender;
     if (foodStyle) updateData.foodStyle = foodStyle;
     if (country) updateData.country = country;
     if (region) updateData.region = region;
@@ -236,6 +238,65 @@ router.get('/verify', auth, async (req, res) => {
     });
   } catch (error) {
     res.status(401).json({ valid: false, message: 'Invalid token' });
+  }
+});
+
+// Update water intake (protected route)
+router.post('/update-water', auth, async (req, res) => {
+  try {
+    const user = req.user;
+    const today = new Date();
+    const lastReset = new Date(user.dailyTracking?.lastWaterReset || user.createdAt);
+    
+    // Reset water intake if it's a new day
+    if (today.toDateString() !== lastReset.toDateString()) {
+      user.dailyTracking.waterIntake = 0;
+      user.dailyTracking.lastWaterReset = today;
+    }
+    
+    // Increment water intake (max 8 glasses)
+    if (user.dailyTracking.waterIntake < 8) {
+      user.dailyTracking.waterIntake += 1;
+    }
+    
+    await user.save();
+    
+    res.json({
+      message: 'Water intake updated',
+      waterIntake: user.dailyTracking.waterIntake
+    });
+  } catch (error) {
+    console.error('Water update error:', error);
+    res.status(500).json({ message: 'Server error updating water intake' });
+  }
+});
+
+// Get dashboard stats (protected route)
+router.get('/dashboard-stats', auth, async (req, res) => {
+  try {
+    const user = req.user;
+    const today = new Date();
+    
+    // Reset water intake if it's a new day
+    const lastWaterReset = new Date(user.dailyTracking?.lastWaterReset || user.createdAt);
+    let waterIntake = user.dailyTracking?.waterIntake || 0;
+    
+    if (today.toDateString() !== lastWaterReset.toDateString()) {
+      waterIntake = 0;
+      user.dailyTracking.waterIntake = 0;
+      user.dailyTracking.lastWaterReset = today;
+      await user.save();
+    }
+    
+    res.json({
+      currentWeight: user.weight || 65,
+      waterIntake: waterIntake,
+      streakDays: user.stats?.streak || 0,
+      user: user.getProfile()
+    });
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
+    res.status(500).json({ message: 'Server error fetching dashboard stats' });
   }
 });
 

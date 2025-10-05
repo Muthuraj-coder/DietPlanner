@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+// Use environment variable for API URL, fallback to localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 class ApiService {
   constructor() {
@@ -109,6 +110,19 @@ class ApiService {
     });
   }
 
+  // Dashboard methods
+  async getDashboardStats() {
+    return await this.makeRequest('/auth/dashboard-stats', {
+      method: 'GET',
+    });
+  }
+
+  async updateWaterIntake() {
+    return await this.makeRequest('/auth/update-water', {
+      method: 'POST',
+    });
+  }
+
   // Meal plan generation
   async generateMealPlan(profile, edamam) {
     return await this.makeRequest('/mealplan/generate', {
@@ -129,6 +143,13 @@ class ApiService {
     return await this.makeRequest('/mealplan/complete-meal', {
       method: 'POST',
       body: JSON.stringify({ mealType }),
+    });
+  }
+
+  // Check generation status
+  async getGenerationStatus() {
+    return await this.makeRequest('/mealplan/generation-status', {
+      method: 'GET',
     });
   }
 

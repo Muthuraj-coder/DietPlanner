@@ -1,0 +1,25 @@
+services:
+  # Backend API Service Only (Frontend will be deployed to Netlify)
+  - type: web
+    name: nutriflow-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://muthurajd23cse:Muthu4855@crud.ftlqkl0.mongodb.net/nutriflow?retryWrites=true&w=majority
+      - key: JWT_SECRET
+        value: your-super-secret-jwt-key-change-this-in-production-nutriflow-2024
+      - key: EDAMAM_APP_ID
+        value: e4fffceb
+      - key: EDAMAM_APP_KEY
+        value: be643d753fa54c259fceeb6f556d2bc7
+      - key: EMAIL_USER
+        value: muthurajd.23cse@kongu.edu
+      - key: EMAIL_PASS
+        value: yxjiilwlhwynrliv
+      - key: FRONTEND_URL
+        value: https://nutriflow-app.netlify.app

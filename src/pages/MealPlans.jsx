@@ -7,9 +7,12 @@ const MealPlans = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [plan, setPlan] = useState(null);
   const [todayMealPlan, setTodayMealPlan] = useState(null);
   const [canGenerate, setCanGenerate] = useState(true);
+  const [remainingGenerations, setRemainingGenerations] = useState(3);
+  const [generationCount, setGenerationCount] = useState(0);
   const [timeUntilNextGeneration, setTimeUntilNextGeneration] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -23,20 +26,29 @@ const MealPlans = () => {
   const checkTodayMealPlan = async () => {
     try {
       setInitialLoading(true);
-      const response = await api.getTodayMealPlan();
-      setTodayMealPlan(response.mealPlan);
-      setPlan(response.mealPlan);
       
-      // Check if meal plan was generated today
-      const today = new Date().toDateString();
-      const generatedDate = new Date(response.mealPlan.generatedAt).toDateString();
-      const wasGeneratedToday = today === generatedDate;
+      // Check generation status first
+      const generationStatus = await api.getGenerationStatus();
+      setCanGenerate(generationStatus.canGenerate);
+      setRemainingGenerations(generationStatus.remainingGenerations);
+      setGenerationCount(generationStatus.generationCount);
       
-      setCanGenerate(!wasGeneratedToday);
+      // Get today's meal plan if it exists
+      try {
+        const response = await api.getTodayMealPlan();
+        setTodayMealPlan(response.mealPlan);
+        setPlan(response.mealPlan);
+      } catch (mealPlanError) {
+        // No meal plan exists yet, which is fine
+        console.log('No meal plan exists yet');
+      }
+      
       updateTimeUntilNext();
     } catch (error) {
       console.error('Error checking today\'s meal plan:', error);
       setCanGenerate(true);
+      setRemainingGenerations(3);
+      setGenerationCount(0);
     } finally {
       setInitialLoading(false);
     }
@@ -60,6 +72,7 @@ const MealPlans = () => {
     
     setLoading(true);
     setError('');
+    setSuccess('');
     try {
       const profile = {
         name: user?.name,
@@ -67,6 +80,7 @@ const MealPlans = () => {
         age: user?.age,
         height: user?.height,
         weight: user?.weight,
+        gender: user?.gender,
         foodStyle: user?.foodStyle,
         country: user?.country,
         region: user?.region,
@@ -82,10 +96,36 @@ const MealPlans = () => {
       const result = await api.generateMealPlan(profile, edamam);
       setPlan(result);
       setTodayMealPlan(result);
-      setCanGenerate(false);
+      
+      // Show email notification status
+      if (result.emailSent) {
+        setSuccess('✅ Meal plan generated and sent to your email successfully!');
+        console.log('✅ Meal plan sent to email successfully!');
+      } else if (result.emailMessage && result.emailMessage !== 'Email not sent') {
+        setSuccess('✅ Meal plan generated successfully! (Email notification failed)');
+        console.log('⚠️ Email notification failed:', result.emailMessage);
+      } else {
+        setSuccess('✅ Meal plan generated successfully!');
+      }
+      
+      // Update generation status after successful generation
+      const newGenerationStatus = await api.getGenerationStatus();
+      setCanGenerate(newGenerationStatus.canGenerate);
+      setRemainingGenerations(newGenerationStatus.remainingGenerations);
+      setGenerationCount(newGenerationStatus.generationCount);
+      
       updateTimeUntilNext();
     } catch (e) {
-      setError(e.message || 'Failed to generate meal plan');
+      if (e.message && e.message.includes('Daily generation limit reached')) {
+        setError('You have reached the daily limit of 3 meal plan generations. Try again tomorrow!');
+        // Refresh generation status
+        const newGenerationStatus = await api.getGenerationStatus();
+        setCanGenerate(newGenerationStatus.canGenerate);
+        setRemainingGenerations(newGenerationStatus.remainingGenerations);
+        setGenerationCount(newGenerationStatus.generationCount);
+      } else {
+        setError(e.message || 'Failed to generate meal plan');
+      }
     } finally {
       setLoading(false);
     }
@@ -107,6 +147,16 @@ const MealPlans = () => {
           )}
         </div>
         <div className="text-right">
+          <div className="mb-2">
+            <span className="text-sm text-gray-600">
+              Daily generations: {generationCount}/3
+            </span>
+            {remainingGenerations > 0 && (
+              <span className="ml-2 text-sm text-emerald-600 font-medium">
+                ({remainingGenerations} remaining)
+              </span>
+            )}
+          </div>
           <button
             onClick={handleGenerate}
             disabled={loading || !canGenerate}
@@ -121,15 +171,15 @@ const MealPlans = () => {
                 <Loader2 className="w-4 h-4 animate-spin" /> Generating...
               </span>
             ) : canGenerate ? (
-              'Generate Plan'
+              remainingGenerations > 0 ? 'Generate New Plan' : 'Generate Plan'
             ) : (
-              'Plan Generated'
+              'Daily Limit Reached'
             )}
           </button>
-          {!canGenerate && (
-            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+          {!canGenerate && remainingGenerations === 0 && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              Next generation in: {timeUntilNextGeneration}
+              Resets in: {timeUntilNextGeneration}
             </p>
           )}
         </div>
@@ -138,6 +188,12 @@ const MealPlans = () => {
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700">
+          {success}
         </div>
       )}
 
@@ -206,7 +262,19 @@ const MealPlans = () => {
           <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-700 mb-2">No Meal Plan Yet</h3>
           <p className="text-gray-500 mb-4">Generate your personalized daily meal plan to get started</p>
-          {canGenerate && (
+          
+          <div className="mb-4">
+            <span className="text-sm text-gray-600">
+              Daily generations used: {generationCount}/3
+            </span>
+            {remainingGenerations > 0 && (
+              <span className="ml-2 text-sm text-emerald-600 font-medium">
+                ({remainingGenerations} remaining today)
+              </span>
+            )}
+          </div>
+          
+          {canGenerate ? (
             <button
               onClick={handleGenerate}
               disabled={loading}
@@ -214,6 +282,11 @@ const MealPlans = () => {
             >
               {loading ? 'Generating...' : 'Generate Your First Plan'}
             </button>
+          ) : (
+            <div>
+              <p className="text-red-500 mb-2">Daily generation limit reached (3/3)</p>
+              <p className="text-sm text-gray-500">Resets in: {timeUntilNextGeneration}</p>
+            </div>
           )}
         </div>
       )}
