@@ -39,14 +39,14 @@ EDAMAM_APP_ID=e4fffceb
 EDAMAM_APP_KEY=be643d753fa54c259fceeb6f556d2bc7
 EMAIL_USER=muthurajd.23cse@kongu.edu
 EMAIL_PASS=yxjiilwlhwynrliv
-FRONTEND_URL=https://nutriflow-app.netlify.app
+FRONTEND_URL=https://nutriflowin.netlify.app
 ```
 
 ### Step 4: Deploy Backend
 1. Click **Create Web Service**
 2. Wait for deployment to complete (5-10 minutes)
-3. Note your backend URL: `https://nutriflow-backend.onrender.com`
-4. Test health endpoint: `https://nutriflow-backend.onrender.com/api/health`
+3. Note your backend URL: `https://nutriflow-backend-3v30.onrender.com`
+4. Test health endpoint: `https://nutriflow-backend-3v30.onrender.com/api/health`
 
 ---
 
@@ -65,7 +65,7 @@ FRONTEND_URL=https://nutriflow-app.netlify.app
 1. Go to **Site settings** → **Environment variables**
 2. Add this variable:
    ```
-   VITE_API_URL=https://nutriflow-backend.onrender.com/api
+   VITE_API_URL=https://nutriflow-backend-3v30.onrender.com/api
    ```
    ⚠️ **Important**: Replace `nutriflow-backend` with your actual Render service name
 
@@ -135,8 +135,8 @@ If you used a different Netlify site name, update the backend CORS:
 
 ## 🌟 EXPECTED URLS
 
-- **Backend API**: `https://nutriflow-backend.onrender.com`
-- **Frontend App**: `https://nutriflow-app.netlify.app`
-- **Health Check**: `https://nutriflow-backend.onrender.com/api/health`
+- **Backend API**: `https://nutriflow-backend-3v30.onrender.com`
+- **Frontend App**: `https://nutriflowin.netlify.app`
+- **Health Check**: `https://nutriflow-backend-3v30.onrender.com/api/health`
 
 Your NutriFlow app is now live with backend on Render and frontend on Netlify! 🎉

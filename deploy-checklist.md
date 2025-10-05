@@ -27,11 +27,11 @@
 2. Connect GitHub repo
 3. Build: `npm run build`
 4. Publish: `dist`
-5. Add env var: `VITE_API_URL=https://YOUR_BACKEND.onrender.com/api`
+5. Add env var: `VITE_API_URL=https://nutriflow-backend-3v30.onrender.com/api`
 6. Deploy!
 
 ### 3. Test Everything (2 minutes)
-- [ ] Backend health: `https://YOUR_BACKEND.onrender.com/api/health`
+- [ ] Backend health: `https://nutriflow-backend-3v30.onrender.com/api/health`
 - [ ] Frontend loads: `https://YOUR_SITE.netlify.app`
 - [ ] Can register/login
 - [ ] Can generate meal plans

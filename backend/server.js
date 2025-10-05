@@ -17,9 +17,10 @@ const corsOptions = {
     
     const allowedOrigins = process.env.NODE_ENV === 'production' 
       ? [
-          process.env.FRONTEND_URL || 'https://nutriflow-app.netlify.app',
+          process.env.FRONTEND_URL || 'https://nutriflowin.netlify.app',
+          'https://nutriflowin.netlify.app',
           'https://nutriflow-app.netlify.app',
-          'https://main--nutriflow-app.netlify.app' // Netlify deploy previews
+          'https://main--nutriflowin.netlify.app' // Netlify deploy previews
         ]
       : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174'];
     
