@@ -9,36 +9,57 @@ dotenv.config({ path: './config.env' });
 
 const router = express.Router();
 
-// Setup Nodemailer transporter
+// Setup Nodemailer transporter with production-ready configuration
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // Use TLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
+  },
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 5000,    // 5 seconds
+  socketTimeout: 10000,     // 10 seconds
+  tls: {
+    rejectUnauthorized: false
   }
 });
 
-// Email sending function
+// Email sending function with timeout handling
 async function sendEmail(to, subject, text) {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('Email credentials not configured, skipping email send');
+      console.log('📧 Email credentials not configured, skipping email send');
       return { success: false, message: 'Email not configured' };
     }
 
-    await transporter.sendMail({
+    // Add timeout wrapper
+    const emailPromise = transporter.sendMail({
       from: process.env.EMAIL_USER,
       to,
       subject,
       text,
       html: text.replace(/\n/g, '<br>')
     });
+
+    // Set 15 second timeout for email sending
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email timeout after 15 seconds')), 15000)
+    );
+
+    await Promise.race([emailPromise, timeoutPromise]);
     
-    console.log(`Email sent successfully to ${to}`);
+    console.log(`✅ Email sent successfully to ${to}`);
     return { success: true, message: 'Email sent successfully' };
   } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, message: 'Failed to send email' };
+    if (error.message.includes('timeout')) {
+      console.error('⏰ Email timeout - continuing without email');
+    } else {
+      console.error('❌ Error sending email:', error.message);
+    }
+    return { success: false, message: 'Failed to send email', error: error.message };
   }
 }
 

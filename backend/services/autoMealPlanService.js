@@ -1,41 +1,61 @@
 const User = require('../models/User');
 const MealPlan = require('../models/MealPlan');
-const fetch = require('node-fetch');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 
 dotenv.config({ path: './config.env' });
 
-// Setup email transporter
+// Setup email transporter with better error handling for production
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // Use TLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
+  },
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 5000,    // 5 seconds
+  socketTimeout: 10000,     // 10 seconds
+  tls: {
+    rejectUnauthorized: false
   }
 });
 
-// Email sending function
+// Email sending function with better error handling
 async function sendEmail(to, subject, text) {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('Email credentials not configured, skipping email send');
+      console.log('📧 Email credentials not configured, skipping email send');
       return { success: false, message: 'Email not configured' };
     }
 
-    await transporter.sendMail({
+    // Add timeout wrapper
+    const emailPromise = transporter.sendMail({
       from: process.env.EMAIL_USER,
       to,
       subject,
       text,
       html: text.replace(/\n/g, '<br>')
     });
+
+    // Set 15 second timeout for email sending
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email timeout after 15 seconds')), 15000)
+    );
+
+    await Promise.race([emailPromise, timeoutPromise]);
     
-    console.log(`Email sent successfully to ${to}`);
+    console.log(`✅ Email sent successfully to ${to}`);
     return { success: true, message: 'Email sent successfully' };
   } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, message: 'Failed to send email' };
+    if (error.message.includes('timeout')) {
+      console.error('⏰ Email timeout - continuing without email');
+    } else {
+      console.error('❌ Error sending email:', error.message);
+    }
+    return { success: false, message: 'Failed to send email', error: error.message };
   }
 }
 
@@ -118,24 +138,79 @@ function estimateMaintenanceCalories({ age, height, weight, gender }) {
   return Math.round(bmr * activityMultiplier);
 }
 
-// Function to search recipes from Edamam API
+// Fallback meals when API fails
+const fallbackMeals = {
+  breakfast: [
+    { name: "Oatmeal with Fruits", calories: 350, protein: 12, carbs: 65, fats: 8 },
+    { name: "Scrambled Eggs with Toast", calories: 400, protein: 20, carbs: 35, fats: 18 },
+    { name: "Greek Yogurt with Granola", calories: 320, protein: 15, carbs: 45, fats: 10 }
+  ],
+  lunch: [
+    { name: "Grilled Chicken Salad", calories: 450, protein: 35, carbs: 25, fats: 22 },
+    { name: "Vegetable Rice Bowl", calories: 420, protein: 12, carbs: 75, fats: 8 },
+    { name: "Lentil Curry with Rice", calories: 480, protein: 18, carbs: 78, fats: 12 }
+  ],
+  snack: [
+    { name: "Mixed Nuts", calories: 200, protein: 6, carbs: 8, fats: 18 },
+    { name: "Apple with Peanut Butter", calories: 180, protein: 4, carbs: 25, fats: 8 },
+    { name: "Greek Yogurt", calories: 150, protein: 15, carbs: 12, fats: 5 }
+  ],
+  dinner: [
+    { name: "Grilled Fish with Vegetables", calories: 380, protein: 30, carbs: 20, fats: 18 },
+    { name: "Chicken Stir Fry", calories: 420, protein: 28, carbs: 35, fats: 16 },
+    { name: "Vegetable Pasta", calories: 400, protein: 12, carbs: 70, fats: 10 }
+  ]
+};
+
+// Function to search recipes from Edamam API (Updated to v2)
 async function searchRecipes(query, calories, excluded = []) {
   const edamam = {
     app_id: process.env.EDAMAM_APP_ID,
     app_key: process.env.EDAMAM_APP_KEY
   };
 
+  // Updated to Recipe Search API v2
   const excludedQuery = excluded.length > 0 ? `&excluded=${excluded.join(',')}` : '';
-  const url = `https://api.edamam.com/search?q=${encodeURIComponent(query)}&app_id=${edamam.app_id}&app_key=${edamam.app_key}&calories=${calories-100}-${calories+100}&to=20${excludedQuery}`;
+  const url = `https://api.edamam.com/api/recipes/v2?type=public&q=${encodeURIComponent(query)}&app_id=${edamam.app_id}&app_key=${edamam.app_key}&calories=${calories-100}-${calories+100}&random=true${excludedQuery}`;
   
   try {
+    console.log(`🔍 Searching recipes: ${query} (${calories-100}-${calories+100} cal)`);
     const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error(`❌ Edamam API error: ${response.status} ${response.statusText}`);
+      return [];
+    }
+    
     const data = await response.json();
+    console.log(`✅ Found ${data.hits?.length || 0} recipes for: ${query}`);
     return data.hits || [];
   } catch (error) {
-    console.error('Edamam API error:', error);
+    console.error('❌ Edamam API error:', error);
     return [];
   }
+}
+
+// Function to get fallback meal when API fails
+function getFallbackMeal(mealType, targetCalories) {
+  const meals = fallbackMeals[mealType] || fallbackMeals.lunch;
+  const randomMeal = meals[Math.floor(Math.random() * meals.length)];
+  
+  console.log(`🔄 Using fallback meal for ${mealType}: ${randomMeal.name}`);
+  
+  return {
+    recipe: {
+      label: randomMeal.name,
+      calories: randomMeal.calories,
+      totalNutrients: {
+        PROCNT: { quantity: randomMeal.protein },
+        CHOCDF: { quantity: randomMeal.carbs },
+        FAT: { quantity: randomMeal.fats }
+      },
+      ingredientLines: ["Nutritious ingredients"],
+      url: "#"
+    }
+  };
 }
 
 // Function to generate meal plan for a user
@@ -202,45 +277,35 @@ async function generateMealPlanForUser(user) {
         }
       }
 
+      let selectedRecipe;
+      
       if (recipes.length > 0) {
-        const recipe = recipes[0].recipe;
-        const meal = {
-          mealType,
-          name: recipe.label,
-          ingredients: recipe.ingredientLines || [],
-          calories: Math.round(recipe.calories / recipe.yield),
-          macronutrients: {
-            protein: Math.round((recipe.totalNutrients?.PROCNT?.quantity || 0) / recipe.yield),
-            carbs: Math.round((recipe.totalNutrients?.CHOCDF?.quantity || 0) / recipe.yield),
-            fats: Math.round((recipe.totalNutrients?.FAT?.quantity || 0) / recipe.yield)
-          },
-          source: recipe.source,
-          url: recipe.url,
-          image: recipe.image
-        };
-        
-        meals.push(meal);
-        excluded.push(recipe.label);
+        selectedRecipe = recipes[0];
       } else {
-        // Create fallback meal if no recipes found
-        const fallbackMeals = {
-          breakfast: { name: 'Healthy Breakfast', calories: Math.round(targetDaily * 0.25) },
-          lunch: { name: 'Nutritious Lunch', calories: Math.round(targetDaily * 0.35) },
-          snack: { name: 'Healthy Snack', calories: Math.round(targetDaily * 0.10) },
-          dinner: { name: 'Balanced Dinner', calories: Math.round(targetDaily * 0.30) }
-        };
-        
-        const fallback = fallbackMeals[mealType];
-        meals.push({
-          mealType,
-          name: fallback.name,
-          ingredients: ['Healthy ingredients'],
-          calories: fallback.calories,
-          macronutrients: { protein: 20, carbs: 50, fats: 15 },
-          source: 'NutriFlow',
-          url: ''
-        });
+        // Use fallback meal system when API completely fails
+        console.log(`⚠️ No recipes found for ${mealType}, using fallback meal`);
+        selectedRecipe = getFallbackMeal(mealType, targetCalories);
       }
+
+      const recipe = selectedRecipe.recipe;
+      const meal = {
+        mealType,
+        name: recipe.label,
+        ingredients: recipe.ingredientLines || ["Nutritious ingredients"],
+        calories: Math.round(recipe.calories / (recipe.yield || 1)),
+        macronutrients: {
+          protein: Math.round((recipe.totalNutrients?.PROCNT?.quantity || 0) / (recipe.yield || 1)),
+          carbs: Math.round((recipe.totalNutrients?.CHOCDF?.quantity || 0) / (recipe.yield || 1)),
+          fats: Math.round((recipe.totalNutrients?.FAT?.quantity || 0) / (recipe.yield || 1))
+        },
+        source: recipe.source || "NutriFlow",
+        url: recipe.url || "#",
+        image: recipe.image || null,
+        completed: false
+      };
+      
+      meals.push(meal);
+      excluded.push(recipe.label);
     }
 
     // Calculate totals
