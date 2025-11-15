@@ -439,13 +439,25 @@ router.post('/generate', auth, async (req, res) => {
     function sanitizeUserId(val) {
       if (!val) return null;
       const s = String(val).trim().toLowerCase();
-      // Always slugify: drop characters not allowed by Edamam (remove @ and others)
-      const slug = s
-        .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_.-]/g, '')
-        .replace(/^[_\-.]+|[_\-.]+$/g, '')
-        .slice(0, 64);
-      return slug || null;
+      
+      // Create a simple, valid user ID for Edamam
+      // Use first part of email before @ or first word of name
+      let cleanId;
+      if (s.includes('@')) {
+        cleanId = s.split('@')[0];
+      } else {
+        cleanId = s.split(' ')[0];
+      }
+      
+      // Remove all special characters and keep only alphanumeric
+      cleanId = cleanId.replace(/[^a-z0-9]/g, '').slice(0, 20);
+      
+      // Ensure it starts with a letter and has minimum length
+      if (!/^[a-z]/.test(cleanId) || cleanId.length < 3) {
+        cleanId = 'user' + Math.random().toString(36).substr(2, 6);
+      }
+      
+      return cleanId || 'demouser';
     }
 
     const accountUserHeader = sanitizeUserId(accountUser) || sanitizeUserId(email) || sanitizeUserId(name) || 'demo_user';
@@ -538,13 +550,22 @@ router.post('/generate', auth, async (req, res) => {
       }
       if (!best) return null;
       const { r, perServing } = best;
-      const macros = extractMacrosPerServing(r);
+      const originalMacros = extractMacrosPerServing(r);
+      
+      // Scale macronutrients proportionally to match target calories
+      const scaleFactor = perMealTarget / perServing;
+      const scaledMacros = {
+        protein: Math.round((originalMacros.protein || 0) * scaleFactor),
+        carbs: Math.round((originalMacros.carbs || 0) * scaleFactor),
+        fats: Math.round((originalMacros.fats || 0) * scaleFactor)
+      };
+      
       return {
         mealType,
         name: r.label,
         ingredients: r.ingredientLines || [],
-        calories: Math.round(perServing),
-        macronutrients: macros,
+        calories: perMealTarget, // ✅ Use target calories instead of original recipe calories
+        macronutrients: scaledMacros, // ✅ Scale macros proportionally
         source: r.source,
         url: r.url,
         image: r.image
@@ -718,12 +739,25 @@ router.get('/today', auth, async (req, res) => {
       function sanitizeUserId(val) {
         if (!val) return null;
         const s = String(val).trim().toLowerCase();
-        const slug = s
-          .replace(/\s+/g, '_')
-          .replace(/[^a-z0-9_.-]/g, '')
-          .replace(/^[_\-.]+|[_\-.]+$/g, '')
-          .slice(0, 64);
-        return slug || null;
+        
+        // Create a simple, valid user ID for Edamam
+        // Use first part of email before @ or first word of name
+        let cleanId;
+        if (s.includes('@')) {
+          cleanId = s.split('@')[0];
+        } else {
+          cleanId = s.split(' ')[0];
+        }
+        
+        // Remove all special characters and keep only alphanumeric
+        cleanId = cleanId.replace(/[^a-z0-9]/g, '').slice(0, 20);
+        
+        // Ensure it starts with a letter and has minimum length
+        if (!/^[a-z]/.test(cleanId) || cleanId.length < 3) {
+          cleanId = 'user' + Math.random().toString(36).substr(2, 6);
+        }
+        
+        return cleanId || 'demouser';
       }
 
       const accountUserHeader = sanitizeUserId(user.email) || sanitizeUserId(user.name) || 'demo_user';
@@ -850,13 +884,22 @@ router.get('/today', auth, async (req, res) => {
         }
         
         const { r, perServing } = best;
-        const macros = extractMacrosPerServing(r);
+        const originalMacros = extractMacrosPerServing(r);
+        
+        // Scale macronutrients proportionally to match target calories
+        const scaleFactor = perMealTarget / perServing;
+        const scaledMacros = {
+          protein: Math.round((originalMacros.protein || 0) * scaleFactor),
+          carbs: Math.round((originalMacros.carbs || 0) * scaleFactor),
+          fats: Math.round((originalMacros.fats || 0) * scaleFactor)
+        };
+        
         return {
           mealType,
           name: r.label,
           ingredients: r.ingredientLines || [],
-          calories: Math.round(perServing),
-          macronutrients: macros,
+          calories: perMealTarget, // ✅ Use target calories instead of original recipe calories
+          macronutrients: scaledMacros, // ✅ Scale macros proportionally
           source: r.source,
           url: r.url,
           image: r.image

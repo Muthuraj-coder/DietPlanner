@@ -5,36 +5,57 @@ const dotenv = require('dotenv');
 
 dotenv.config({ path: './config.env' });
 
-// Setup email transporter
+// Setup email transporter with production-ready configuration
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // Use TLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
+  },
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 5000,    // 5 seconds
+  socketTimeout: 10000,     // 10 seconds
+  tls: {
+    rejectUnauthorized: false
   }
 });
 
-// Simple email sending function for meal notifications
+// Enhanced meal notification function with timeout handling
 async function sendMealNotification(to, subject, text) {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('Email credentials not configured, skipping meal notification');
+      console.log('📧 Email credentials not configured, skipping meal notification');
       return { success: false, message: 'Email not configured' };
     }
 
-    await transporter.sendMail({
+    // Add timeout wrapper
+    const emailPromise = transporter.sendMail({
       from: `"NutriFlow 🍽️" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
       html: text.replace(/\n/g, '<br>')
     });
+
+    // Set 15 second timeout for email sending
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email timeout after 15 seconds')), 15000)
+    );
+
+    await Promise.race([emailPromise, timeoutPromise]);
     
-    console.log(`📧 Meal notification sent to ${to}`);
+    console.log(`✅ Meal notification sent to ${to}`);
     return { success: true, message: 'Meal notification sent' };
   } catch (error) {
-    console.error('Error sending meal notification:', error);
-    return { success: false, message: 'Failed to send notification' };
+    if (error.message.includes('timeout')) {
+      console.error('⏰ Meal notification timeout - continuing');
+    } else {
+      console.error('❌ Error sending meal notification:', error.message);
+    }
+    return { success: false, message: 'Failed to send notification', error: error.message };
   }
 }
 

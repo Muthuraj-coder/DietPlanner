@@ -9,18 +9,36 @@ const {
 
 console.log('🕐 Meal Plan Scheduler & Notifications initialized');
 
-// Schedule auto meal plan generation every day at 6:00 AM
-cron.schedule('0 6 * * *', async () => {
-  console.log('🤖 Running scheduled meal plan generation at 6:00 AM...');
+// PRIMARY: Schedule auto meal plan generation every day at 12:00 AM (MIDNIGHT)
+cron.schedule('0 0 * * *', async () => {
+  console.log('🌙 Running MIDNIGHT auto meal plan generation at 12:00 AM...');
   try {
     const result = await generateAutoMealPlans();
     if (result.success) {
-      console.log(`✅ Scheduled generation completed: ${result.generated} plans generated, ${result.skipped} skipped`);
+      console.log(`✅ Midnight generation completed: ${result.generated} plans generated, ${result.skipped} skipped`);
     } else {
-      console.error('❌ Scheduled generation failed:', result.error);
+      console.error('❌ Midnight generation failed:', result.error);
     }
   } catch (error) {
-    console.error('❌ Scheduler error:', error);
+    console.error('❌ Midnight scheduler error:', error);
+  }
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata" // Indian timezone
+});
+
+// BACKUP: Schedule auto meal plan generation every day at 6:00 AM (for missed users)
+cron.schedule('0 6 * * *', async () => {
+  console.log('🌅 Running BACKUP meal plan generation at 6:00 AM...');
+  try {
+    const result = await generateAutoMealPlans();
+    if (result.success) {
+      console.log(`✅ Backup generation completed: ${result.generated} plans generated, ${result.skipped} skipped`);
+    } else {
+      console.error('❌ Backup generation failed:', result.error);
+    }
+  } catch (error) {
+    console.error('❌ Backup scheduler error:', error);
   }
 }, {
   scheduled: true,
@@ -217,12 +235,13 @@ router.post('/trigger-dinner-notifications', async (req, res) => {
 });
 
 console.log('📅 Scheduled tasks:');
-console.log('  - Daily auto meal plan generation at 6:00 AM IST');
-console.log('  - Backup generation at 12:00 PM IST');
-console.log('  - Breakfast notifications at 8:00 AM IST');
-console.log('  - Lunch notifications at 1:00 PM IST');
-console.log('  - Snack notifications at 4:00 PM IST');
-console.log('  - Dinner notifications at 8:00 PM IST');
+console.log('  - 🌙 PRIMARY: Auto meal plan generation at 12:00 AM IST (MIDNIGHT)');
+console.log('  - 🌅 BACKUP: Auto meal plan generation at 6:00 AM IST');
+console.log('  - 🔄 BACKUP: Auto meal plan generation at 12:00 PM IST');
+console.log('  - 🌅 Breakfast notifications at 8:00 AM IST');
+console.log('  - ☀️ Lunch notifications at 1:00 PM IST');
+console.log('  - 🍎 Snack notifications at 4:00 PM IST');
+console.log('  - 🌙 Dinner notifications at 8:00 PM IST');
 console.log('');
 console.log('🔧 Manual triggers available:');
 console.log('  - POST /api/scheduler/trigger-auto-generation');
