@@ -43,12 +43,8 @@ async function sendEmail(to, subject, text) {
     console.log(`✅ Email sent successfully to ${to}`);
     return { success: true, message: 'Email sent successfully' };
   } catch (error) {
-    if (error.message.includes('timeout')) {
-      console.error('⏰ Email timeout - continuing without email');
-    } else {
-      console.error('❌ Error sending email:', error.message);
-    }
-    return { success: false, message: 'Failed to send email', error: error.message };
+    console.error("SMTP FULL ERROR:", error);
+    throw new Error("Failed to send email");
   }
 }
 

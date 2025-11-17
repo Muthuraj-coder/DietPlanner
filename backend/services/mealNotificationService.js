@@ -43,12 +43,8 @@ async function sendMealNotification(to, subject, text) {
     console.log(`✅ Meal notification sent to ${to}`);
     return { success: true, message: 'Meal notification sent' };
   } catch (error) {
-    if (error.message.includes('timeout')) {
-      console.error('⏰ Meal notification timeout - continuing');
-    } else {
-      console.error('❌ Error sending meal notification:', error.message);
-    }
-    return { success: false, message: 'Failed to send notification', error: error.message };
+    console.error("SMTP FULL ERROR:", error);
+    throw new Error("Failed to send email");
   }
 }
 
