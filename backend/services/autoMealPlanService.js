@@ -7,20 +7,13 @@ dotenv.config({ path: './config.env' });
 
 // Setup email transporter with better error handling for production
 const transporter = nodemailer.createTransport({
-  service: "gmail",
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // Use TLS
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    pass: process.env.EMAIL_PASS,
   },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 5000,    // 5 seconds
-  socketTimeout: 10000,     // 10 seconds
-  tls: {
-    rejectUnauthorized: false
-  }
 });
 
 // Email sending function with better error handling
