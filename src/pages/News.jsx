@@ -8,8 +8,8 @@ const News = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState('health');
 
-  const NEWS_API_KEY = 'be643d753fa54c259fceeb6f556d2bc7';
-  const NEWS_API_URL = 'https://newsapi.org/v2/everything';
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  const NEWS_API_ENDPOINT = API_BASE_URL ? `${API_BASE_URL}/news` : '/api/news';
 
   const healthCategories = [
     { value: 'health', label: 'General Health', query: 'health nutrition wellness' },
@@ -31,17 +31,22 @@ const News = () => {
       const selectedCategory = healthCategories.find(cat => cat.value === category);
       const query = customQuery || selectedCategory?.query || 'health nutrition wellness';
       
-      const response = await fetch(
-        `${NEWS_API_URL}?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_API_KEY}`
-      );
+      const params = new URLSearchParams({
+        q: query,
+        category,
+        limit: '10'
+      });
+
+      const response = await fetch(`${NEWS_API_ENDPOINT}?${params.toString()}`);
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch news: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to fetch news: ${response.status}`);
       }
 
       const data = await response.json();
       
-      if (data.status === 'error') {
+      if (data.status && data.status !== 'ok') {
         throw new Error(data.message || 'Failed to fetch news');
       }
 
@@ -186,9 +191,9 @@ const News = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {articles.map((article, index) => (
             <article key={index} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow">
-              {article.urlToImage && (
+              { (article.urlToImage || article.image) && (
                 <img
-                  src={article.urlToImage}
+                  src={article.urlToImage || article.image}
                   alt={article.title}
                   className="w-full h-48 object-cover"
                   onError={(e) => {

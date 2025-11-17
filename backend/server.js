@@ -6,6 +6,8 @@ require('dotenv').config({ path: './config.env' });
 const authRoutes = require('./routes/auth');
 const mealplanRoutes = require('./routes/mealplan');
 const schedulerRoutes = require('./scheduler');
+const adminRoutes = require('./routes/admin');
+const newsRoutes = require('./routes/news');
 
 const app = express();
 
@@ -33,7 +35,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Key'],
   optionsSuccessStatus: 200 // For legacy browser support
 };
 
@@ -54,6 +56,8 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/auth', authRoutes);
 app.use('/api/mealplan', mealplanRoutes);
 app.use('/api/scheduler', schedulerRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/news', newsRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

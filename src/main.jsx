@@ -11,6 +11,8 @@ import MealPlans from "./pages/MealPlans";
 import Tasks from "./pages/Tasks";
 import News from "./pages/News";
 import Profile from "./pages/Profile";
+import AdminLogin from "./admin/AdminLogin";
+import AdminDashboard from "./admin/AdminDashboard";
 import { AuthProvider } from "./context/AuthContext";
 import "./index.css";
 
@@ -29,6 +31,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/news" element={<News />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/adminlogin" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
