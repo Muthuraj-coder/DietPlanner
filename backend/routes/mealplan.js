@@ -48,7 +48,13 @@ async function sendEmail(to, subject, text) {
     return { success: true, message: 'Email sent successfully' };
   } catch (error) {
     console.error("SMTP FULL ERROR:", error);
-    throw new Error("Failed to send email");
+    console.error("SMTP Error Stack:", error.stack);
+    console.error("SMTP Error Code:", error.code);
+    console.error("SMTP Error Response:", error.response);
+    console.error("SMTP Error ResponseCode:", error.responseCode);
+    console.error("SMTP Error Command:", error.command);
+    console.error("SMTP Full Error Object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    throw error; // Re-throw original error to preserve all details
   }
 }
 
@@ -646,7 +652,11 @@ router.post('/generate', auth, async (req, res) => {
           formattedMealPlan
         );
       } catch (emailError) {
-        console.error('Email sending error:', emailError);
+        console.error("SMTP FULL ERROR:", emailError);
+        console.error("SMTP Error Stack:", emailError.stack);
+        console.error("SMTP Error Code:", emailError.code);
+        console.error("SMTP Error Response:", emailError.response);
+        console.error("SMTP Error ResponseCode:", emailError.responseCode);
         emailResult = { success: false, message: 'Email failed to send' };
       }
     }
