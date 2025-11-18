@@ -1,67 +1,24 @@
 const User = require('../models/User');
 const MealPlan = require('../models/MealPlan');
-const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
+const { sendEmail } = require('../utils/email');
 
 dotenv.config({ path: './config.env' });
 
-// Setup email transporter with better error handling for production
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// Email sending function with better error handling
-async function sendEmail(to, subject, text) {
-  try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('📧 Email credentials not configured, skipping email send');
-      return { success: false, message: 'Email not configured' };
-    }
-
-    // Add timeout wrapper
-    const emailPromise = transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to,
-      subject,
-      text,
-      html: text.replace(/\n/g, '<br>')
-    });
-
-    // Set 15 second timeout for email sending
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email timeout after 15 seconds')), 15000)
-    );
-
-    await Promise.race([emailPromise, timeoutPromise]);
-    
-    console.log(`✅ Email sent successfully to ${to}`);
-    return { success: true, message: 'Email sent successfully' };
-  } catch (error) {
-    console.error("SMTP FULL ERROR:", error);
-    throw new Error("Failed to send email");
-  }
-}
-
-// Function to format meal plan for email
+// Function to format meal plan for email (returns HTML)
 function formatMealPlanForEmail(mealPlan, userProfile) {
   const { targetDailyCalories, meals, summary } = mealPlan;
   
-  let emailContent = `🍽️ Your Daily Meal Plan (Auto-Generated)\n\n`;
-  emailContent += `Hello ${userProfile.name || 'there'}!\n\n`;
-  emailContent += `Here's your automatically generated meal plan for today:\n\n`;
-  emailContent += `📊 Daily Target: ${targetDailyCalories} calories\n`;
-  emailContent += `🎯 Health Goal: ${userProfile.healthGoals || 'General Health'}\n`;
-  emailContent += `🌍 Region: ${userProfile.region || 'Global'} cuisine\n\n`;
+  let html = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">`;
+  html += `<h2 style="color: #059669;">🍽️ Your Daily Meal Plan (Auto-Generated)</h2>`;
+  html += `<p>Hello <strong>${userProfile.name || 'there'}</strong>!</p>`;
+  html += `<p>Here's your automatically generated meal plan for today:</p>`;
+  html += `<p><strong>📊 Daily Target:</strong> ${targetDailyCalories} calories</p>`;
+  html += `<p><strong>🎯 Health Goal:</strong> ${userProfile.healthGoals || 'General Health'}</p>`;
+  html += `<p><strong>🌍 Region:</strong> ${userProfile.region || 'Global'} cuisine</p>`;
+  html += `<hr style="border: 1px solid #e5e7eb; margin: 20px 0;">`;
   
-  emailContent += `═══════════════════════════════════════\n\n`;
-  
-  meals.forEach((meal, index) => {
+  meals.forEach((meal) => {
     const mealEmojis = {
       breakfast: '🌅',
       lunch: '☀️',
@@ -69,44 +26,39 @@ function formatMealPlanForEmail(mealPlan, userProfile) {
       dinner: '🌙'
     };
     
-    emailContent += `${mealEmojis[meal.mealType] || '🍽️'} ${meal.mealType.toUpperCase()}\n`;
-    emailContent += `${meal.name}\n`;
-    emailContent += `Calories: ${meal.calories}\n`;
-    emailContent += `Protein: ${meal.macronutrients?.protein || 0}g | `;
-    emailContent += `Carbs: ${meal.macronutrients?.carbs || 0}g | `;
-    emailContent += `Fats: ${meal.macronutrients?.fats || 0}g\n`;
+    html += `<div style="margin: 20px 0; padding: 15px; background: #f9fafb; border-radius: 8px;">`;
+    html += `<h3 style="color: #059669; margin-top: 0;">${mealEmojis[meal.mealType] || '🍽️'} ${meal.mealType.toUpperCase()}</h3>`;
+    html += `<p style="font-size: 18px; font-weight: bold; margin: 10px 0;">${meal.name}</p>`;
+    html += `<p><strong>Calories:</strong> ${meal.calories}</p>`;
+    html += `<p><strong>Protein:</strong> ${meal.macronutrients?.protein || 0}g | <strong>Carbs:</strong> ${meal.macronutrients?.carbs || 0}g | <strong>Fats:</strong> ${meal.macronutrients?.fats || 0}g</p>`;
     
     if (meal.ingredients && meal.ingredients.length > 0) {
-      emailContent += `Ingredients: ${meal.ingredients.slice(0, 5).join(', ')}`;
-      if (meal.ingredients.length > 5) emailContent += '...';
-      emailContent += '\n';
+      html += `<p><strong>Ingredients:</strong> ${meal.ingredients.slice(0, 5).join(', ')}${meal.ingredients.length > 5 ? '...' : ''}</p>`;
     }
     
     if (meal.url) {
-      emailContent += `Recipe: ${meal.url}\n`;
+      html += `<p><a href="${meal.url}" style="color: #059669;">View Recipe</a></p>`;
     }
     
-    emailContent += `\n`;
+    html += `</div>`;
   });
   
-  emailContent += `═══════════════════════════════════════\n\n`;
-  emailContent += `📈 Daily Summary:\n`;
-  emailContent += `Total Calories: ${summary?.totalCalories || 0}\n`;
-  emailContent += `Protein: ${summary?.protein || 0}g\n`;
-  emailContent += `Carbs: ${summary?.carbs || 0}g\n`;
-  emailContent += `Fats: ${summary?.fats || 0}g\n\n`;
+  html += `<hr style="border: 1px solid #e5e7eb; margin: 20px 0;">`;
+  html += `<h3 style="color: #059669;">📈 Daily Summary:</h3>`;
+  html += `<p><strong>Total Calories:</strong> ${summary?.totalCalories || 0}</p>`;
+  html += `<p><strong>Protein:</strong> ${summary?.protein || 0}g | <strong>Carbs:</strong> ${summary?.carbs || 0}g | <strong>Fats:</strong> ${summary?.fats || 0}g</p>`;
+  html += `<p><strong>🤖 This meal plan was automatically generated for you!</strong></p>`;
+  html += `<h3 style="color: #059669;">💡 Tips:</h3>`;
+  html += `<ul>`;
+  html += `<li>Stay hydrated throughout the day</li>`;
+  html += `<li>Follow portion sizes as recommended</li>`;
+  html += `<li>Complete meals in the app to track progress</li>`;
+  html += `<li>You can still generate up to 3 custom plans today</li>`;
+  html += `</ul>`;
+  html += `<p>Happy eating!<br><strong>The NutriFlow Team 🌱</strong></p>`;
+  html += `</div>`;
   
-  emailContent += `🤖 This meal plan was automatically generated for you!\n`;
-  emailContent += `💡 Tips:\n`;
-  emailContent += `• Stay hydrated throughout the day\n`;
-  emailContent += `• Follow portion sizes as recommended\n`;
-  emailContent += `• Complete meals in the app to track progress\n`;
-  emailContent += `• You can still generate up to 3 custom plans today\n\n`;
-  
-  emailContent += `Happy eating!\n`;
-  emailContent += `The NutriFlow Team 🌱`;
-  
-  return emailContent;
+  return html;
 }
 
 // Utility: estimate maintenance calories using gender-specific Mifflin-St Jeor formula
@@ -351,20 +303,20 @@ async function generateMealPlanForUser(user) {
     // Send email notification
     if (user.email && user.notifications?.email !== false) {
       try {
-        const formattedMealPlan = formatMealPlanForEmail(mealPlanData, {
+        const emailHtml = formatMealPlanForEmail(mealPlanData, {
           name: user.name,
           healthGoals: user.healthGoals,
           region: user.region
         });
         
-        await sendEmail(
-          user.email,
-          "🤖 Your Auto-Generated Daily Meal Plan 🍲",
-          formattedMealPlan
-        );
+        await sendEmail({
+          to: user.email,
+          subject: "🤖 Your Auto-Generated Daily Meal Plan 🍲",
+          html: emailHtml,
+        });
         console.log(`✅ Auto-generated meal plan email sent to ${user.email}`);
       } catch (emailError) {
-        console.error('Email sending error:', emailError);
+        console.error("Resend Email Error (autoMealPlanService):", emailError);
       }
     }
 

@@ -1,54 +1,28 @@
 const User = require('../models/User');
 const MealPlan = require('../models/MealPlan');
-const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
+const { sendEmail } = require('../utils/email');
 
 dotenv.config({ path: './config.env' });
 
-// Setup email transporter with production-ready configuration
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// Enhanced meal notification function with timeout handling
-async function sendMealNotification(to, subject, text) {
+// Enhanced meal notification function
+async function sendMealNotification(to, subject, html) {
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('📧 Email credentials not configured, skipping meal notification');
-      return { success: false, message: 'Email not configured' };
-    }
-
-    // Add timeout wrapper
-    const emailPromise = transporter.sendMail({
-      from: `"NutriFlow 🍽️" <${process.env.EMAIL_USER}>`,
+    await sendEmail({
       to,
       subject,
-      text,
-      html: text.replace(/\n/g, '<br>')
+      html,
     });
-
-    // Set 15 second timeout for email sending
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email timeout after 15 seconds')), 15000)
-    );
-
-    await Promise.race([emailPromise, timeoutPromise]);
     
     console.log(`✅ Meal notification sent to ${to}`);
     return { success: true, message: 'Meal notification sent' };
   } catch (error) {
-    console.error("SMTP FULL ERROR:", error);
-    throw new Error("Failed to send email");
+    console.error("Resend Email Error:", error);
+    throw error;
   }
 }
 
-// Function to create simple meal notification content
+// Function to create simple meal notification content (returns HTML)
 function createMealNotification(mealType, meal, userName) {
   const mealEmojis = {
     breakfast: '🌅',
@@ -69,20 +43,21 @@ function createMealNotification(mealType, meal, userName) {
   
   const subject = `${emoji} ${timeLabel} Reminder - NutriFlow`;
   
-  const content = `${emoji} ${timeLabel} Reminder
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #059669;">${emoji} ${timeLabel} Reminder</h2>
+      <p>Hello <strong>${userName || 'there'}</strong>!</p>
+      <p>Your ${mealType} is ready:</p>
+      <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="font-size: 18px; font-weight: bold; margin: 10px 0;">🍽️ ${meal.name}</p>
+        <p><strong>🔥 Calories:</strong> ${meal.calories}</p>
+      </div>
+      <p>Enjoy your meal and stay healthy! 💪</p>
+      <p>Best regards,<br><strong>NutriFlow Team 🌱</strong></p>
+    </div>
+  `;
 
-Hello ${userName || 'there'}!
-
-Your ${mealType} is ready:
-🍽️ ${meal.name}
-🔥 ${meal.calories} calories
-
-Enjoy your meal and stay healthy! 💪
-
-Best regards,
-NutriFlow Team 🌱`;
-
-  return { subject, content };
+  return { subject, html };
 }
 
 // Function to send meal notifications to all users for a specific meal type
@@ -123,7 +98,7 @@ async function sendMealNotificationsForMealType(mealType) {
         const result = await sendMealNotification(
           user.email,
           notification.subject,
-          notification.content
+          notification.html
         );
 
         if (result.success) {
@@ -204,7 +179,7 @@ async function testMealNotification(userId, mealType) {
     }
 
     const notification = createMealNotification(mealType, meal, user.name);
-    const result = await sendMealNotification(user.email, notification.subject, notification.content);
+    const result = await sendMealNotification(user.email, notification.subject, notification.html);
     
     return {
       success: result.success,
